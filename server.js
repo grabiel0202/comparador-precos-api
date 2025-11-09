@@ -7,20 +7,18 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 🔹 Rota principal de teste
+// 🔹 Rota de teste
 app.get("/", (req, res) => {
-  console.log("GET / requisitado");
   res.send("✅ API Comparador de Preços está online!");
 });
 
-// 🔹 Rota que busca produtos do Mercado Livre com query dinâmica
-app.get("/produtos/:query?", async (req, res) => {
-  const query = req.params.query || "notebook";
-  console.log(`🔍 Buscando produtos para query: "${query}"`);
-
+// 🔹 Rota que busca produtos do Mercado Livre via proxy
+app.get("/produtos", async (req, res) => {
   try {
+    console.log("🔍 Iniciando busca de produtos no Mercado Livre...");
+
     const response = await fetch(
-      `https://api.mercadolibre.com/sites/MLB/search?q=${encodeURIComponent(query)}`,
+      "https://api.mercadolibre.com/sites/MLB/search?q=notebook",
       {
         headers: {
           "User-Agent":
@@ -30,8 +28,9 @@ app.get("/produtos/:query?", async (req, res) => {
       }
     );
 
+    console.log(`📡 Status da resposta do Mercado Livre: ${response.status}`);
+
     if (!response.ok) {
-      console.error("Erro na API do Mercado Livre:", response.status);
       return res
         .status(response.status)
         .json({ message: "Erro na API do Mercado Livre" });
@@ -40,7 +39,7 @@ app.get("/produtos/:query?", async (req, res) => {
     const data = await response.json();
 
     if (!data.results || data.results.length === 0) {
-      console.warn("⚠️ Nenhum produto encontrado");
+      console.log("⚠️ Nenhum produto encontrado.");
       return res.status(404).json({ message: "Nenhum produto encontrado." });
     }
 
@@ -49,18 +48,16 @@ app.get("/produtos/:query?", async (req, res) => {
       nome: item.title,
       preco: item.price,
       imagem: item.thumbnail,
-      link: item.permalink, // link direto do produto
-      categoria: item.category_id,
     }));
 
-    console.log(`✅ ${produtos.length} produtos retornados`);
+    console.log(`✅ Produtos carregados: ${produtos.length}`);
     res.json(produtos);
   } catch (error) {
-    console.error("Erro interno ao buscar produtos:", error);
+    console.error("❌ Erro ao buscar produtos:", error);
     res.status(500).json({ message: "Erro interno ao buscar produtos." });
   }
 });
 
 // 🔹 Porta dinâmica exigida pelo Render
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`✅ Servidor rodando na porta ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Servidor rodando na porta ${PORT}`));
