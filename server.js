@@ -9,24 +9,24 @@ app.use(express.json());
 
 // ✅ Rota de teste
 app.get("/", (req, res) => {
-  res.send("✅ API Comparador de Preços está online (via ScraperAPI)!");
+  res.send("✅ API Comparador de Preços está online (ScraperAPI ativo)!");
 });
 
-// ✅ Proxy para Mercado Livre
+// ✅ Rota de produtos com proxy real via ScraperAPI
 app.get("/produtos", async (req, res) => {
   const query = req.query.q || "notebook";
-  const apiKey = process.env.SCRAPER_API_KEY; // 🔑 chave do ScraperAPI
+  const apiKey = process.env.SCRAPER_API_KEY;
 
   if (!apiKey) {
-    return res.status(500).json({ message: "Chave do ScraperAPI ausente no servidor" });
+    return res.status(500).json({ message: "❌ SCRAPER_API_KEY não configurada." });
   }
 
-  const url = `https://api.scraperapi.com?api_key=${apiKey}&url=${encodeURIComponent(
-    `https://api.mercadolibre.com/sites/MLB/search?q=${query}`
-  )}`;
+  const targetUrl = `https://api.mercadolibre.com/sites/MLB/search?q=${encodeURIComponent(query)}`;
+  const scraperUrl = `https://api.scraperapi.com/?api_key=${apiKey}&url=${encodeURIComponent(targetUrl)}`;
 
   try {
-    const response = await fetch(url);
+    console.log("🔎 Buscando produtos com query:", query);
+    const response = await fetch(scraperUrl);
     if (!response.ok) {
       return res.status(response.status).json({ message: "Erro ao acessar ScraperAPI" });
     }
@@ -47,11 +47,11 @@ app.get("/produtos", async (req, res) => {
 
     res.json(produtos);
   } catch (error) {
-    console.error("Erro ao buscar produtos:", error);
+    console.error("⚠️ Erro ao buscar produtos:", error);
     res.status(500).json({ message: "Erro interno ao buscar produtos." });
   }
 });
 
-// 🔹 Porta exigida pelo Render
+// 🔹 Porta dinâmica exigida pelo Render
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Servidor rodando na porta ${PORT}`));
