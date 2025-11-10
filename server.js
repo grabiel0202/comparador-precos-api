@@ -7,25 +7,28 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 🔹 Rota principal de teste
+// ✅ Rota de teste
 app.get("/", (req, res) => {
-  res.send("✅ API Comparador de Preços está online (com proxy via AllOrigins)!");
+  res.send("✅ API Comparador de Preços está online (via ScraperAPI)!");
 });
 
-// 🔹 Rota que busca produtos do Mercado Livre via proxy
+// ✅ Proxy para Mercado Livre
 app.get("/produtos", async (req, res) => {
   const query = req.query.q || "notebook";
+  const apiKey = process.env.SCRAPER_API_KEY; // 🔑 chave do ScraperAPI
+
+  if (!apiKey) {
+    return res.status(500).json({ message: "Chave do ScraperAPI ausente no servidor" });
+  }
+
+  const url = `https://api.scraperapi.com?api_key=${apiKey}&url=${encodeURIComponent(
+    `https://api.mercadolibre.com/sites/MLB/search?q=${query}`
+  )}`;
 
   try {
-    // 🔹 Usando o proxy AllOrigins para evitar bloqueio de CORS
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(
-      `https://api.mercadolibre.com/sites/MLB/search?q=${query}`
-    )}`;
-
-    const response = await fetch(proxyUrl);
-
+    const response = await fetch(url);
     if (!response.ok) {
-      return res.status(response.status).json({ message: "Erro ao acessar o proxy ou Mercado Livre" });
+      return res.status(response.status).json({ message: "Erro ao acessar ScraperAPI" });
     }
 
     const data = await response.json();
@@ -34,7 +37,6 @@ app.get("/produtos", async (req, res) => {
       return res.status(404).json({ message: "Nenhum produto encontrado." });
     }
 
-    // 🔹 Mapeia os produtos para o app
     const produtos = data.results.slice(0, 10).map((item) => ({
       id: item.id,
       nome: item.title,
@@ -50,6 +52,6 @@ app.get("/produtos", async (req, res) => {
   }
 });
 
-// 🔹 Porta dinâmica exigida pelo Render
+// 🔹 Porta exigida pelo Render
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Servidor rodando na porta ${PORT}`));
