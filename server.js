@@ -7,75 +7,49 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 🔹 Teste simples
+// 🔹 Rota principal de teste
 app.get("/", (req, res) => {
-  res.send("✅ API Comparador de Preços está online!");
+  res.send("✅ API Comparador de Preços está online (com proxy via AllOrigins)!");
 });
 
-// 🔹 Busca produtos do Mercado Livre com logs e fallback
+// 🔹 Rota que busca produtos do Mercado Livre via proxy
 app.get("/produtos", async (req, res) => {
-  const termo = req.query.q || "notebook"; // permite ?q=iphone por exemplo
+  const query = req.query.q || "notebook";
 
   try {
-    console.log(`🟡 Buscando produtos no Mercado Livre: ${termo}`);
-    const response = await fetch(`https://api.mercadolibre.com/sites/MLB/search?q=${termo}`, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0 Safari/537.36",
-        Accept: "application/json",
-      },
-    });
+    // 🔹 Usando o proxy AllOrigins para evitar bloqueio de CORS
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(
+      `https://api.mercadolibre.com/sites/MLB/search?q=${query}`
+    )}`;
 
-    console.log("🔍 Status da resposta:", response.status);
+    const response = await fetch(proxyUrl);
 
     if (!response.ok) {
-      const body = await response.text();
-      console.error("❌ Erro ao buscar produtos:", body);
-      return res.status(response.status).json({
-        message: "Erro na API do Mercado Livre",
-        status: response.status,
-        detalhes: body,
-      });
+      return res.status(response.status).json({ message: "Erro ao acessar o proxy ou Mercado Livre" });
     }
 
     const data = await response.json();
-    console.log(`✅ ${data.results?.length || 0} produtos encontrados`);
 
     if (!data.results || data.results.length === 0) {
-      console.warn("⚠️ Nenhum produto encontrado. Enviando lista padrão.");
-      return res.json([
-        {
-          id: "exemplo1",
-          nome: "Notebook Genérico",
-          preco: 2999.99,
-          imagem: "https://via.placeholder.com/150",
-        },
-        {
-          id: "exemplo2",
-          nome: "Celular Genérico",
-          preco: 1999.99,
-          imagem: "https://via.placeholder.com/150",
-        },
-      ]);
+      return res.status(404).json({ message: "Nenhum produto encontrado." });
     }
 
+    // 🔹 Mapeia os produtos para o app
     const produtos = data.results.slice(0, 10).map((item) => ({
       id: item.id,
       nome: item.title,
       preco: item.price,
       imagem: item.thumbnail,
+      link: item.permalink,
     }));
 
     res.json(produtos);
   } catch (error) {
-    console.error("💥 Erro interno ao buscar produtos:", error);
-    res.status(500).json({
-      message: "Erro interno ao buscar produtos.",
-      detalhes: error.message,
-    });
+    console.error("Erro ao buscar produtos:", error);
+    res.status(500).json({ message: "Erro interno ao buscar produtos." });
   }
 });
 
-// 🔹 Porta dinâmica para o Render
+// 🔹 Porta dinâmica exigida pelo Render
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Servidor rodando na porta ${PORT}`));
