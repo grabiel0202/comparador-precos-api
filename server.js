@@ -1,18 +1,3 @@
-// server.js
-import express from "express";
-import cors from "cors";
-import fetch from "node-fetch";
-
-const app = express();
-app.use(cors());
-app.use(express.json());
-
-// ✅ Rota de teste
-app.get("/", (req, res) => {
-  res.send("✅ API Comparador de Preços está online (ScraperAPI ativo)!");
-});
-
-// ✅ Rota de produtos com proxy real via ScraperAPI
 app.get("/produtos", async (req, res) => {
   const query = req.query.q || "notebook";
   const apiKey = process.env.SCRAPER_API_KEY;
@@ -27,13 +12,20 @@ app.get("/produtos", async (req, res) => {
   try {
     console.log("🔎 Buscando produtos com query:", query);
     const response = await fetch(scraperUrl);
+
+    console.log("🛰️ Status da resposta ScraperAPI:", response.status);
+
+    const text = await response.text();
+    console.log("📦 Retorno bruto (primeiros 300 chars):", text.slice(0, 300));
+
     if (!response.ok) {
       return res.status(response.status).json({ message: "Erro ao acessar ScraperAPI" });
     }
 
-    const data = await response.json();
+    const data = JSON.parse(text);
 
     if (!data.results || data.results.length === 0) {
+      console.log("⚠️ Nenhum produto encontrado na resposta.");
       return res.status(404).json({ message: "Nenhum produto encontrado." });
     }
 
@@ -51,7 +43,3 @@ app.get("/produtos", async (req, res) => {
     res.status(500).json({ message: "Erro interno ao buscar produtos." });
   }
 });
-
-// 🔹 Porta dinâmica exigida pelo Render
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`✅ Servidor rodando na porta ${PORT}`));
